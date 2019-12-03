@@ -7,9 +7,9 @@ import (
 )
 
 type Command struct {
-	Name string
+	Name        string
 	Subcommands []*Command
-	Aliases []string
+	Aliases     []string
 }
 
 type PersistentFlag struct {
