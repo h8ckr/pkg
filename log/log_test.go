@@ -75,7 +75,7 @@ func BenchmarkFatalln(b *testing.B) {
 	}
 }
 
-func TestPanic(t *testing.T)  {
+func TestPanic(t *testing.T) {
 	validTestErr := returnErr()
 	err := errors.Wrap(validTestErr, "wrapped")
 	Panic(err, "panic situation")
