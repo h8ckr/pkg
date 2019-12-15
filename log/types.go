@@ -4,29 +4,30 @@ import (
 	"github.com/pkg/errors"
 	"reflect"
 	"syscall"
+	"time"
 )
 
 var (
-	debugDepth = 4
-	infoDepth = 3
+	debugDepth   = 4
+	infoDepth    = 3
 	errOnlyDepth = 2
-	silentDepth = 1
+	silentDepth  = 1
 )
 
 type level struct {
-	depth *int
-	validDepths struct{
-		debugDepth *int
-		infoDepth *int
-		errOnlyDepth *int
-		silentDepth *int
+	Depth       *int
+	ValidDepths struct {
+		Debug   *int
+		Info    *int
+		ErrOnly *int
+		Silent  *int
 	}
-	minDepth *int
-	maxDepth *int
+	MinDepth *int
+	MaxDepth *int
 }
 
 func (l *level) get() *int {
-	return l.depth
+	return l.Depth
 }
 
 func (l *level) setMaxDepth() {
@@ -34,11 +35,11 @@ func (l *level) setMaxDepth() {
 	if len(values) == 0 {
 		return
 	}
-	l.maxDepth = values[0]
+	l.MaxDepth = values[0]
 	if len(values) > 1 {
 		for candidate := range values {
-			if candidate < *l.maxDepth {
-				l.maxDepth = &candidate
+			if candidate < *l.MaxDepth {
+				l.MaxDepth = &candidate
 			}
 		}
 	}
@@ -49,11 +50,11 @@ func (l *level) setMinDepths() {
 	if len(values) == 0 {
 		return
 	}
-	l.minDepth = values[0]
+	l.MinDepth = values[0]
 	if len(values) > 1 {
 		for candidate := range values {
-			if candidate < *l.minDepth {
-				l.minDepth = &candidate
+			if candidate < *l.MinDepth {
+				l.MinDepth = &candidate
 			}
 		}
 	}
@@ -62,7 +63,7 @@ func (l *level) setMinDepths() {
 func (l *level) getStructFieldIntPtrValues() []*int {
 	var validDepthSlice []*int
 	validDepthsMap := make(map[int]*int)
-	validDepthsValues := reflect.ValueOf(l.validDepths)
+	validDepthsValues := reflect.ValueOf(l.ValidDepths)
 	numFields := validDepthsValues.NumField()
 	for i := 0; i < numFields; i++ {
 		validDepthsMap[i] = validDepthsValues.Field(i).Interface().(*int)
@@ -75,19 +76,19 @@ func (l *level) getStructFieldIntPtrValues() []*int {
 }
 
 func (l *level) set(newDepth *int) error {
-	if *newDepth < *l.minDepth {
-		return errors.Errorf("minimum allowed log depth is %d", *l.minDepth)
-	} else if *newDepth > *l.maxDepth {
-		return errors.Errorf("maximum allowed log depth is %d", *l.maxDepth)
+	if *newDepth < *l.MinDepth {
+		return errors.Errorf("minimum allowed log Depth is %d", *l.MinDepth)
+	} else if *newDepth > *l.MaxDepth {
+		return errors.Errorf("maximum allowed log Depth is %d", *l.MaxDepth)
 	}
 
-	l.depth = newDepth
+	l.Depth = newDepth
 	return nil
 }
 
 type logger struct {
-	level *level
-	prefix string
+	Level  *level
+	Prefix string
 }
 
 func (l *logger) info(bytes []byte) {
@@ -99,10 +100,55 @@ func (l *logger) error(bytes []byte) {
 }
 
 func (l *logger) setPrefix(prefix string) {
-	l.prefix = prefix
+	l.Prefix = prefix
+}
+
+func (l *logger) getPrefix() *string {
+	if l.Prefix == "" {
+		t := time.Now().Format("Mon 2006-01-02 15:04:05 MST")
+		return &t
+	}
+	return &l.Prefix
+}
+
+func (l *logger) setDepth(depth *int) {
+	l.Level.Depth = depth
 }
 
 type commander interface {
-	info(arg interface{})
-	error(arg interface{})
+	info(bytes []byte)
+	error(bytes []byte)
+	setPrefix(prefix string)
+	getPrefix() *string
+	setDepth(depth *int)
+}
+
+func new(prefix string, depth *int) *commander {
+	if depth == nil {
+		depth = &errOnlyDepth
+	}
+	l := logger{
+		Level: &level{
+			Depth: nil,
+			ValidDepths: struct {
+				Debug   *int
+				Info    *int
+				ErrOnly *int
+				Silent  *int
+			}{
+				Debug:   &debugDepth,
+				Info:    &infoDepth,
+				ErrOnly: &errOnlyDepth,
+				Silent:  &silentDepth,
+			},
+			MinDepth: nil,
+			MaxDepth: nil,
+		},
+		Prefix: prefix,
+	}
+	l.Level.setMinDepths()
+	l.Level.setMaxDepth()
+	l.Level.set(depth)
+	var c commander = &l
+	return &c
 }
