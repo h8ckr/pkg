@@ -2,24 +2,23 @@ package log
 
 import (
 	"fmt"
-	"time"
+	"runtime/debug"
 )
 
 var (
-	runtimeLogger logger
+	runtimeLogger commander
 )
 
 func init() {
-	runtimeLogger.level.validDepths = struct {
-		debugDepth   *int
-		infoDepth    *int
-		errOnlyDepth *int
-		silentDepth  *int
-	}{debugDepth: &debugDepth, infoDepth: &infoDepth, errOnlyDepth: &errOnlyDepth, silentDepth: &silentDepth}
-	runtimeLogger.level.setMaxDepth()
-	runtimeLogger.level.setMinDepths()
-	runtimeLogger.level.set(&errOnlyDepth)
-	runtimeLogger.prefix = time.Now().String()
+	r := new("", &infoDepth)
+	runtimeLogger = *r
+}
+
+func Init(prefix string, depth *int) error {
+	runtimeLogger.setPrefix(prefix)
+	runtimeLogger.setDepth(depth)
+
+	return nil
 }
 
 func stringFormatToBytes(format string, args ...interface{}) []byte {
@@ -27,13 +26,35 @@ func stringFormatToBytes(format string, args ...interface{}) []byte {
 }
 
 func Info(arg interface{}) {
-	runtimeLogger.info(stringFormatToBytes(runtimeLogger.prefix+" %v", arg))
+	runtimeLogger.info(stringFormatToBytes("%s %v", *runtimeLogger.getPrefix(), arg))
 }
 
 func Infof(format string, args ...interface{}) {
-	runtimeLogger.info(stringFormatToBytes(runtimeLogger.prefix+" "+format, args...))
+	argsCombined := []interface{}{*runtimeLogger.getPrefix()}
+	argsCombined = append(argsCombined, args...)
+	runtimeLogger.info(stringFormatToBytes("%s "+format, argsCombined...))
 }
 
 func Infoln(arg interface{}) {
-	runtimeLogger.info(stringFormatToBytes(runtimeLogger.prefix+" %v %v", arg, "\n"))
+	runtimeLogger.info(stringFormatToBytes("%s %v %v", *runtimeLogger.getPrefix(), arg, "\n"))
+}
+
+func Fatal(arg interface{}) {
+	runtimeLogger.info(stringFormatToBytes("%s %v", *runtimeLogger.getPrefix(), arg))
+}
+
+func Fatalf(format string, args ...interface{}) {
+	argsCombined := []interface{}{*runtimeLogger.getPrefix()}
+	argsCombined = append(argsCombined, args...)
+	runtimeLogger.info(stringFormatToBytes("%s "+format, argsCombined...))
+}
+
+func Fatalln(arg interface{}) {
+	runtimeLogger.info(stringFormatToBytes("%s %v %v", *runtimeLogger.getPrefix(), arg, "\n"))
+}
+
+func Panic(err error, message ...string) {
+	stackBytes := debug.Stack()
+	stack := string(stackBytes)
+	runtimeLogger.error(stringFormatToBytes("%s%v", stack, "\n"))
 }
